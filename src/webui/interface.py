@@ -7,6 +7,7 @@ from src.webui.components.browser_settings_tab import create_browser_settings_ta
 from src.webui.components.browser_use_agent_tab import create_browser_use_agent_tab
 from src.webui.components.deep_research_agent_tab import create_deep_research_agent_tab
 from src.webui.components.load_save_config_tab import create_load_save_config_tab
+from src.webui.components.rpa_challenge_tab import create_rpa_challenge_tab
 
 # Cores da Accenture
 ACCENTURE_PURPLE = "#A100FF"
@@ -123,6 +124,9 @@ def create_ui(theme_name="Accenture"):
                 with gr.Tabs():
                     with gr.TabItem("Pesquisa Profunda"):
                         create_deep_research_agent_tab(ui_manager)
+                        
+            with gr.TabItem("🏆 RPA Challenge"):
+                create_rpa_challenge_tab(ui_manager)
 
             with gr.TabItem("📁 Configurações"):
                 create_load_save_config_tab(ui_manager)

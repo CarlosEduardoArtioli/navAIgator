@@ -26,6 +26,21 @@ class WebuiManager:
         self.settings_save_dir = settings_save_dir
         os.makedirs(self.settings_save_dir, exist_ok=True)
 
+        # Browser Use Agent state
+        self.bu_agent: Optional[Agent] = None
+        self.bu_browser: Optional[CustomBrowser] = None
+        self.bu_browser_context: Optional[CustomBrowserContext] = None
+        self.bu_controller: Optional[CustomController] = None
+        self.bu_chat_history: List[Dict[str, Optional[str]]] = []
+        self.bu_response_event: Optional[asyncio.Event] = None
+        self.bu_user_help_response: Optional[str] = None
+        self.bu_current_task: Optional[asyncio.Task] = None
+        self.bu_agent_task_id: Optional[str] = None
+
+        # RPA Challenge state
+        self.rpa_challenge_runner = None
+        self.rpa_challenge_task = None
+
     def init_browser_use_agent(self) -> None:
         """
         init browser use agent
@@ -48,6 +63,11 @@ class WebuiManager:
         self.dr_current_task = None
         self.dr_agent_task_id: Optional[str] = None
         self.dr_save_dir: Optional[str] = None
+
+    def init_rpa_challenge(self):
+        """Initialize the RPA Challenge state."""
+        self.rpa_challenge_runner = None  # Reference to RPAChallengeRunner instance
+        self.rpa_challenge_task = None  # Current running RPA Challenge task
 
     def add_components(self, tab_name: str, components_dict: dict[str, "Component"]) -> None:
         """
