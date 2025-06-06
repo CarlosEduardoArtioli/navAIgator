@@ -1,5 +1,5 @@
 import gradio as gr
-from gradio.themes import Base, Default, Soft, Monochrome, Glass, Origin, Citrus, Ocean  # Importar temas explicitamente
+from gradio.themes import Base, Default, Soft, Monochrome, Glass, Origin, Citrus, Ocean  # Import themes explicitly
 
 from src.webui.webui_manager import WebuiManager
 from src.webui.components.agent_settings_tab import create_agent_settings_tab
@@ -8,14 +8,15 @@ from src.webui.components.browser_use_agent_tab import create_browser_use_agent_
 from src.webui.components.deep_research_agent_tab import create_deep_research_agent_tab
 from src.webui.components.load_save_config_tab import create_load_save_config_tab
 from src.webui.components.rpa_challenge_tab import create_rpa_challenge_tab
+from src.webui.components.azure_devops_tab import create_azure_devops_tab
 
-# Cores da Accenture
+# Accenture Colors
 ACCENTURE_PURPLE = "#A100FF"
 ACCENTURE_BLACK = "#000000"
 ACCENTURE_LIGHT_PURPLE = "#B459FF"
 ACCENTURE_GREY = "#4A4A4A"
 
-# Criar tema customizado para Accenture
+# Create custom Accenture theme
 accenture_theme = gr.Theme(
     primary_hue="purple",
     secondary_hue="gray",
@@ -99,36 +100,39 @@ def create_ui(theme_name="Accenture"):
                 <span class="accenture-title">Test Navigator</span>
                 </div>
                 
-                ### A ferramenta de testes automatizados inteligente
+                ### Intelligent test automation tool
                 """,
                 elem_classes=["header-text"],
             )
 
         with gr.Tabs() as tabs:
-            with gr.TabItem("⚙️ Configurações do Agente"):
+            with gr.TabItem("⚙️ Agent Settings"):
                 create_agent_settings_tab(ui_manager)
 
-            with gr.TabItem("🌐 Configurações do Navegador"):
+            with gr.TabItem("🌐 Browser Settings"):
                 create_browser_settings_tab(ui_manager)
                 
-            with gr.TabItem("🤖 Executar Agente"):
+            with gr.TabItem("🤖 Run Agent"):
                 create_browser_use_agent_tab(ui_manager)
 
-            with gr.TabItem("🔍 Análise Avançada"):
+            with gr.TabItem("🔍 Advanced Analysis"):
                 gr.Markdown(
                     """
-                    ### Agentes especializados para testes
+                    ### Specialized test agents
                     """,
                     elem_classes=["tab-header-text"],
                 )
                 with gr.Tabs():
-                    with gr.TabItem("Pesquisa Profunda"):
+                    with gr.TabItem("Deep Research"):
                         create_deep_research_agent_tab(ui_manager)
                         
             with gr.TabItem("🏆 RPA Challenge"):
                 create_rpa_challenge_tab(ui_manager)
 
-            with gr.TabItem("📁 Configurações"):
+            with gr.TabItem("🔗 Azure DevOps"):
+                create_azure_devops_tab(ui_manager)
+
+            with gr.TabItem("📁 Settings"):
                 create_load_save_config_tab(ui_manager)
 
     return demo

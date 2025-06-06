@@ -197,7 +197,7 @@ async def _handle_new_step(
     await asyncio.sleep(0.05)
 
 
-def _handle_done(webui_manager: WebuiManager, history: AgentHistoryList):
+def _handle_done(webui_manager: WebuiManager, history: AgentHistoryList, components: Dict[gr.components.Component, Any] = None):
     """Callback when the agent finishes the task (success or failure)."""
     logger.info(
         f"Agent task finished. Duration: {history.total_duration_seconds():.2f}s, Tokens: {history.total_input_tokens()}"
@@ -219,6 +219,294 @@ def _handle_done(webui_manager: WebuiManager, history: AgentHistoryList):
     webui_manager.bu_chat_history.append(
         {"role": "assistant", "content": final_summary}
     )
+    
+    # Check if Azure DevOps auto-send is enabled and send results
+    try:
+        # Get the current component values from the components dict
+        auto_send_enabled = _get_azure_devops_auto_send_state(webui_manager, components)
+        if auto_send_enabled:
+            logger.info("Azure DevOps auto-send is enabled, sending results...")
+            _send_results_to_azure_devops(webui_manager, history, components)
+        else:
+            logger.debug("Azure DevOps auto-send is disabled")
+    except Exception as e:
+        logger.error(f"Error checking Azure DevOps auto-send: {e}")
+
+
+def _get_azure_devops_auto_send_state(webui_manager: WebuiManager, components: Dict[gr.components.Component, Any] = None) -> bool:
+    """Get the current state of Azure DevOps auto-send checkbox."""
+    try:
+        # Try to get from stored state first
+        if hasattr(webui_manager, 'azure_devops_auto_send'):
+            return bool(webui_manager.azure_devops_auto_send)
+        
+        if components:
+            # Try to get from components dict
+            auto_send_comp = webui_manager.get_component_by_id("azure_devops.auto_send_enabled")
+            if auto_send_comp and auto_send_comp in components:
+                return bool(components.get(auto_send_comp, False))
+        
+        # Fallback: try direct access
+        auto_send_comp = webui_manager.get_component_by_id("azure_devops.auto_send_enabled")
+        if auto_send_comp and hasattr(auto_send_comp, 'value'):
+            return bool(auto_send_comp.value)
+            
+        return False
+    except Exception as e:
+        logger.error(f"Error getting Azure DevOps auto-send state: {e}")
+        return False
+
+
+def _send_results_to_azure_devops(webui_manager: WebuiManager, history: AgentHistoryList, components: Dict[gr.components.Component, Any] = None):
+    """Send agent execution results to Azure DevOps."""
+    try:
+        # Import Azure DevOps functions
+        from src.webui.components.azure_devops_tab import create_work_item_with_attachments
+        
+        # Get Azure DevOps configuration - try to get current values
+        organization = _get_component_value(webui_manager, "azure_devops.organization", components)
+        project = _get_component_value(webui_manager, "azure_devops.project", components) 
+        pat = _get_component_value(webui_manager, "azure_devops.pat", components)
+        
+        logger.info(f"Azure DevOps config - Org: '{organization}', Project: '{project}', PAT: {'***' if pat else 'None'}")
+        
+        if not (organization and project and pat):
+            error_msg = "❌ Azure DevOps configuration incomplete. Please configure Organization, Project, and PAT in the Azure DevOps tab."
+            logger.warning(error_msg)
+            webui_manager.bu_chat_history.append({"role": "assistant", "content": error_msg})
+            return
+            
+        # Get input task from chat history
+        input_task = ""
+        for msg in webui_manager.bu_chat_history:
+            if msg.get("role") == "user":
+                input_task = msg.get("content", "")
+                break
+                
+        if not input_task:
+            input_task = "Agent execution completed"
+                
+        # Create output summary
+        try:
+            duration = history.total_duration_seconds() if hasattr(history, 'total_duration_seconds') else 0.0
+            tokens = history.total_input_tokens() if hasattr(history, 'total_input_tokens') else 0
+            final_result = history.final_result() if hasattr(history, 'final_result') else 'Unknown result'
+            errors = history.errors() if hasattr(history, 'errors') else []
+        except Exception as e:
+            logger.warning(f"Error getting history data: {e}")
+            duration = 0.0
+            tokens = 0
+            final_result = 'Data unavailable due to execution error'
+            errors = [str(e)]
+            
+        output_summary = f"""
+Agent Execution Summary:
+Duration: {duration:.2f} seconds
+Total Input Tokens: {tokens}
+
+Final Result: {final_result or 'No specific result'}
+
+Errors: {errors if errors and any(errors) else 'None'}
+
+Execution Status: {'Failed/Cancelled' if errors and any(errors) else 'Completed'}
+
+Full Chat History:
+"""
+        for msg in webui_manager.bu_chat_history:
+            role = msg.get("role", "unknown")
+            content = msg.get("content", "")
+            output_summary += f"\n[{role.upper()}]: {content}\n"
+            
+        # Get file paths
+        gif_path = None
+        history_path = None
+        
+        # Get GIF path if available
+        if hasattr(webui_manager.bu_agent, 'settings') and hasattr(webui_manager.bu_agent.settings, 'generate_gif'):
+            gif_path = webui_manager.bu_agent.settings.generate_gif
+            logger.info(f"GIF path: {gif_path}")
+            
+        # Get history path from agent or create one
+        if hasattr(webui_manager.bu_agent, 'history') and hasattr(webui_manager.bu_agent.history, 'save_path'):
+            history_path = webui_manager.bu_agent.history.save_path
+        else:
+            # Always try to create a history file (even for failures)
+            try:
+                import tempfile
+                import json
+                import os
+                
+                # Create temp history file
+                temp_dir = tempfile.gettempdir()
+                history_filename = f"agent_history_{webui_manager.bu_agent_task_id or 'unknown'}.json"
+                history_path = os.path.join(temp_dir, history_filename)
+                
+                # Save history to temp file with safe data extraction
+                history_data = {
+                    "task": input_task,
+                    "duration": duration,
+                    "tokens": tokens,
+                    "final_result": final_result,
+                    "errors": errors,
+                    "chat_history": webui_manager.bu_chat_history,
+                    "execution_status": "Failed/Cancelled" if errors and any(errors) else "Completed"
+                }
+                
+                with open(history_path, 'w', encoding='utf-8') as f:
+                    json.dump(history_data, f, indent=2, ensure_ascii=False)
+                    
+                logger.info(f"Created history file: {history_path}")
+                
+            except Exception as e:
+                logger.error(f"Error creating history file: {e}")
+                history_path = None
+            
+        # Get parent work item ID if available
+        parent_work_item_id = getattr(webui_manager, 'azure_devops_parent_work_item_id', None)
+        
+        # Send to Azure DevOps
+        result = create_work_item_with_attachments(
+            organization=organization,
+            project=project,
+            pat=pat,
+            input_text=input_task or "Agent execution completed",
+            output_text=output_summary,
+            gif_path=gif_path,
+            history_path=history_path,
+            parent_work_item_id=parent_work_item_id
+        )
+        
+        # Extract and store work item ID for later use (e.g., for GIF upload)
+        if "Work item #" in result and "created successfully" in result:
+            import re
+            match = re.search(r'Work item #(\d+)', result)
+            if match:
+                work_item_id = int(match.group(1))
+                webui_manager.last_created_work_item_id = work_item_id
+                logger.info(f"Stored work item ID {work_item_id} for future use")
+        
+        # Add result to chat history
+        webui_manager.bu_chat_history.append(
+            {"role": "assistant", "content": f"📤 Azure DevOps: {result}"}
+        )
+        
+        logger.info(f"Azure DevOps result: {result}")
+        
+    except Exception as e:
+        error_msg = f"❌ Failed to send results to Azure DevOps: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+        webui_manager.bu_chat_history.append(
+            {"role": "assistant", "content": error_msg}
+        )
+
+
+def _get_component_value(webui_manager: WebuiManager, component_id: str, components: Dict[gr.components.Component, Any] = None):
+    """Get current value of a component."""
+    try:
+        comp = webui_manager.get_component_by_id(component_id)
+        if comp:
+            # Try to get from components dict first
+            if components and comp in components:
+                return components.get(comp)
+            # Fallback to component.value
+            if hasattr(comp, 'value'):
+                return comp.value
+        return None
+    except Exception as e:
+        logger.error(f"Error getting component {component_id} value: {e}")
+        return None
+
+
+def _try_send_error_to_azure_devops(webui_manager: WebuiManager, components: Dict[gr.components.Component, Any], error: Exception):
+    """Try to send error results to Azure DevOps if auto-send is enabled."""
+    try:
+        # Check if auto-send is enabled
+        auto_send_enabled = _get_azure_devops_auto_send_state(webui_manager, components)
+        if not auto_send_enabled:
+            logger.debug("Azure DevOps auto-send disabled for error case")
+            return
+            
+        logger.info("Sending error results to Azure DevOps...")
+        
+        # Create basic history data for failed execution
+        error_history = type('MockHistory', (), {
+            'total_duration_seconds': lambda: 0.0,
+            'total_input_tokens': lambda: 0,
+            'final_result': lambda: f"Execution failed: {type(error).__name__}: {error}",
+            'errors': lambda: [str(error)]
+        })()
+        
+        _send_results_to_azure_devops(webui_manager, error_history, components)
+        
+    except Exception as e:
+        logger.error(f"Error in _try_send_error_to_azure_devops: {e}", exc_info=True)
+
+
+def _try_send_cancellation_to_azure_devops(webui_manager: WebuiManager, components: Dict[gr.components.Component, Any]):
+    """Try to send cancellation results to Azure DevOps if auto-send is enabled."""
+    try:
+        # Check if auto-send is enabled
+        auto_send_enabled = _get_azure_devops_auto_send_state(webui_manager, components)
+        if not auto_send_enabled:
+            logger.debug("Azure DevOps auto-send disabled for cancellation case")
+            return
+            
+        logger.info("Sending cancellation results to Azure DevOps...")
+        
+        # Create basic history data for cancelled execution
+        cancel_history = type('MockHistory', (), {
+            'total_duration_seconds': lambda: 0.0,
+            'total_input_tokens': lambda: 0,
+            'final_result': lambda: "Execution was cancelled by user",
+            'errors': lambda: ["Task cancelled"]
+        })()
+        
+        _send_results_to_azure_devops(webui_manager, cancel_history, components)
+        
+    except Exception as e:
+        logger.error(f"Error in _try_send_cancellation_to_azure_devops: {e}", exc_info=True)
+
+
+def _try_send_gif_to_azure_devops(webui_manager: WebuiManager, components: Dict[gr.components.Component, Any], gif_path: str):
+    """Try to send GIF to Azure DevOps if conditions are met."""
+    try:
+        # Check if auto-send is enabled
+        if not _get_azure_devops_auto_send_state(webui_manager, components):
+            logger.info("Azure DevOps auto-send is disabled, skipping GIF send")
+            return
+            
+        # Get last created work item ID from webui manager
+        last_work_item_id = getattr(webui_manager, 'last_created_work_item_id', None)
+        if not last_work_item_id:
+            logger.warning("No work item ID available for GIF upload")
+            return
+            
+        logger.info(f"Attempting to send GIF to existing work item #{last_work_item_id}")
+        
+        # Get Azure DevOps settings
+        organization = _get_component_value(webui_manager, "azure_devops.organization", components)
+        project = _get_component_value(webui_manager, "azure_devops.project", components) 
+        pat = _get_component_value(webui_manager, "azure_devops.pat", components)
+        
+        if not all([organization, project, pat]):
+            logger.warning("Azure DevOps settings incomplete, cannot send GIF")
+            return
+            
+        # Import Azure DevOps functions
+        from .azure_devops_tab import upload_attachment_to_azure_devops, update_work_item_with_attachment
+        
+        # Upload GIF as attachment
+        gif_url = upload_attachment_to_azure_devops(organization, project, pat, gif_path, f"execution_recording_{last_work_item_id}.gif")
+        
+        if gif_url:
+            # Add GIF attachment to existing work item
+            update_work_item_with_attachment(organization, project, pat, last_work_item_id, gif_url, "Execution Recording GIF")
+            logger.info(f"✅ GIF successfully added to work item #{last_work_item_id}")
+        else:
+            logger.warning("Failed to upload GIF attachment")
+            
+    except Exception as e:
+        logger.error(f"Error sending GIF to Azure DevOps: {e}", exc_info=True)
 
 
 async def _ask_assistant_callback(
@@ -514,7 +802,7 @@ async def run_agent_task(
             await _handle_new_step(webui_manager, state, output, step_num)
 
         def done_callback_wrapper(history: AgentHistoryList):
-            _handle_done(webui_manager, history)
+            _handle_done(webui_manager, history, components)
 
         if not webui_manager.bu_agent:
             logger.info(f"Initializing new agent for task: {task}")
@@ -702,12 +990,23 @@ async def run_agent_task(
             logger.info(f"Explicitly saving agent history to: {history_file}")
             webui_manager.bu_agent.save_history(history_file)
 
+            # Call the done callback manually since the library doesn't always call it
+            if hasattr(webui_manager.bu_agent, 'history'):
+                logger.info("Calling done callback manually after successful completion")
+                _handle_done(webui_manager, webui_manager.bu_agent.history, components)
+
             if os.path.exists(history_file):
                 final_update[history_file_comp] = gr.File(value=history_file)
 
             if gif_path and os.path.exists(gif_path):
                 logger.info(f"GIF found at: {gif_path}")
                 final_update[gif_comp] = gr.Image(value=gif_path)
+                
+                # Try to send GIF to Azure DevOps if auto-send is enabled and GIF wasn't sent earlier
+                try:
+                    _try_send_gif_to_azure_devops(webui_manager, components, gif_path)
+                except Exception as gif_azure_error:
+                    logger.error(f"Failed to send GIF to Azure DevOps: {gif_azure_error}")
 
         except asyncio.CancelledError:
             logger.info("Agent task was cancelled.")
@@ -720,6 +1019,12 @@ async def run_agent_task(
                     {"role": "assistant", "content": "**Task Cancelled**."}
                 )
             final_update[chatbot_comp] = gr.update(value=webui_manager.bu_chat_history)
+            
+            # Try to send cancellation results to Azure DevOps if auto-send is enabled
+            try:
+                _try_send_cancellation_to_azure_devops(webui_manager, components)
+            except Exception as azure_error:
+                logger.error(f"Failed to send cancellation to Azure DevOps: {azure_error}")
         except Exception as e:
             logger.error(f"Error during agent execution: {e}", exc_info=True)
             error_message = (
@@ -734,6 +1039,13 @@ async def run_agent_task(
                     {"role": "assistant", "content": error_message}
                 )
             final_update[chatbot_comp] = gr.update(value=webui_manager.bu_chat_history)
+            
+            # Try to send error results to Azure DevOps if auto-send is enabled
+            try:
+                _try_send_error_to_azure_devops(webui_manager, components, e)
+            except Exception as azure_error:
+                logger.error(f"Failed to send error to Azure DevOps: {azure_error}")
+            
             gr.Error(f"Agent execution failed: {e}")
 
         finally:

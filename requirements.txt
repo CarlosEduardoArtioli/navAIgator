@@ -10,3 +10,4 @@ langgraph==0.3.34
 langchain-community
 pandas>=1.4.0
 playwright>=1.40.0
+azure-devops>=7.0.0

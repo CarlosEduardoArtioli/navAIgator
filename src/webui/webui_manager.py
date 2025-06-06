@@ -40,6 +40,10 @@ class WebuiManager:
         # RPA Challenge state
         self.rpa_challenge_runner = None
         self.rpa_challenge_task = None
+        
+        # Azure DevOps settings
+        self.azure_devops_auto_send = False
+        self.azure_devops_parent_work_item_id = None
 
     def init_browser_use_agent(self) -> None:
         """

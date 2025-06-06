@@ -19,6 +19,8 @@ We would like to officially thank [WarmShao](https://github.com/warmshao) for hi
 
 **Persistent Browser Sessions:** You can choose to keep the browser window open between AI tasks, allowing you to see the complete history and state of AI interactions.
 
+**Azure DevOps Integration:** Seamlessly integrate with Azure DevOps to automatically create work items with execution results, attachments, and link them to parent user stories for comprehensive test automation tracking.
+
 <video src="https://github.com/user-attachments/assets/56bc7080-f2e3-4367-af22-6bf2245ff6cb" controls="controls">Your browser does not support playing this video!</video>
 
 ## Installation Guide
@@ -141,11 +143,65 @@ TARGETPLATFORM=linux/arm64 docker compose up --build
 
 #### Step 4: Enjoy the web-ui and vnc
 - Web-UI: Open `http://localhost:7788` in your browser
-- VNC Viewer (for watching browser interactions): Open `http://localhost:6080/vnc.html`
+  - VNC Viewer (for watching browser interactions): Open `http://localhost:6080/vnc.html`
   - Default VNC password: "youvncpassword"
   - Can be changed by setting `VNC_PASSWORD` in your `.env` file
 
+## Azure DevOps Integration
+
+The WebUI includes built-in Azure DevOps integration that automatically creates work items with detailed execution results, making it perfect for test automation and task tracking.
+
+### Features
+
+✅ **Automatic Work Item Creation** - Creates work items with execution results
+✅ **File Attachments** - Uploads execution output, chat history, and screen recordings  
+✅ **Parent Linking** - Links created work items to parent user stories
+✅ **Connection Testing** - Validates Azure DevOps connectivity
+✅ **User Story Retrieval** - Fetches and displays user story information
+
+### Setup
+
+1. **Configure Azure DevOps Settings** in the WebUI:
+   - **Organization**: Your Azure DevOps organization name
+   - **Project**: Your project name  
+   - **Personal Access Token (PAT)**: Token with Work Items (read/write) permissions
+   - **Parent Work Item ID** (optional): ID to link created work items as children
+
+2. **Generate Personal Access Token**:
+   - Go to Azure DevOps → User Settings → Personal Access Tokens
+   - Create new token with "Work Items (read and write)" scope
+   - Copy the token and paste it in the WebUI
+
+3. **Enable Auto-Send**: Toggle the "Auto-send results to Azure DevOps" option
+
+### Usage
+
+Once configured, the integration works automatically:
+
+1. **Execute any agent task** in the Browser Use Agent tab
+2. **Work item is created** automatically upon task completion  
+3. **Attachments are uploaded**:
+   - `agent_output.txt` - Complete execution output and summary
+   - `agent_history.json` - Full chat history and execution data  
+   - `execution_recording.gif` - Screen recording (if available)
+4. **Work item is linked** to the specified parent user story
+
+### Supported Work Item Types
+
+The integration automatically tries different work item types based on your Azure DevOps project template:
+- Task (preferred)
+- User Story  
+- Bug
+- Issue
+
+### Manual Operations
+
+You can also use the Azure DevOps tab for manual operations:
+- **Test Connection** - Verify your Azure DevOps settings
+- **Retrieve User Story** - Fetch and display user story details by ID
+
 ## Changelog
+- [x] **2025/01/27:** Added comprehensive Azure DevOps integration with automatic work item creation, file attachments, parent linking, and connection testing for seamless test automation workflow.
 - [x] **2025/01/26:** Thanks to @vvincent1234. Now browser-use-webui can combine with DeepSeek-r1 to engage in deep thinking!
 - [x] **2025/01/10:** Thanks to @casistack. Now we have Docker Setup option and also Support keep browser open between tasks.[Video tutorial demo](https://github.com/browser-use/web-ui/issues/1#issuecomment-2582511750).
 - [x] **2025/01/06:** Thanks to @richard-devbot. A New and Well-Designed WebUI is released. [Video tutorial demo](https://github.com/warmshao/browser-use-webui/issues/1#issuecomment-2573393113).

@@ -20,7 +20,7 @@ async def run_rpa_challenge(
     webui_manager: WebuiManager, components: Dict[gr.components.Component, Any]
 ) -> AsyncGenerator[Dict[gr.components.Component, Any], None]:
     """
-    Função para executar o RPA Challenge
+    Function to execute the RPA Challenge
     """
     # Obtém os componentes da interface
     run_button_comp = webui_manager.get_component_by_id("rpa_challenge.run_button")
@@ -33,17 +33,17 @@ async def run_rpa_challenge(
 
     # Atualiza a interface para indicar que o processo está em execução
     yield {
-        run_button_comp: gr.update(interactive=False, value="⏳ Executando..."),
+                    run_button_comp: gr.update(interactive=False, value="⏳ Running..."),
         stop_button_comp: gr.update(interactive=True),
         status_comp: gr.update(value="Iniciando o RPA Challenge..."),
         log_output_comp: gr.update(value="Iniciando o RPA Challenge...\n"),
     }
 
     try:
-        # Obtém as configurações do agente
+        # Get agent configurations
         headless = components.get(headless_comp, True)
         
-        # Obtém as configurações do LLM
+        # Get LLM configurations
         provider_comp = webui_manager.get_component_by_id("agent_settings.llm_provider")
         model_comp = webui_manager.get_component_by_id("agent_settings.llm_model_name")
         temperature_comp = webui_manager.get_component_by_id("agent_settings.llm_temperature")
@@ -56,20 +56,20 @@ async def run_rpa_challenge(
         base_url = components.get(base_url_comp, None)
         api_key = components.get(api_key_comp, None)
         
-        # Verificar se as configurações do LLM estão presentes
+        # Check if LLM settings are present
         if not provider or not model_name:
             yield {
-                status_comp: gr.update(value="Erro: LLM não configurado. Configure nas Configurações do Agente."),
-                run_button_comp: gr.update(interactive=True, value="▶️ Executar RPA Challenge"),
+                status_comp: gr.update(value="Error: LLM not configured. Configure in Agent Settings."),
+                run_button_comp: gr.update(interactive=True, value="▶️ Run RPA Challenge"),
                 stop_button_comp: gr.update(interactive=False),
-                log_output_comp: gr.update(value="Erro: LLM não configurado. Configure nas Configurações do Agente."),
+                log_output_comp: gr.update(value="Error: LLM not configured. Configure in Agent Settings."),
             }
             return
             
-        # Inicializa o LLM
+        # Initialize LLM
         yield {
-            status_comp: gr.update(value="Inicializando LLM..."),
-            log_output_comp: gr.update(value="Inicializando LLM...\n"),
+            status_comp: gr.update(value="Initializing LLM..."),
+            log_output_comp: gr.update(value="Initializing LLM...\n"),
         }
         
         # Tenta inicializar o LLM
@@ -210,64 +210,64 @@ def create_rpa_challenge_tab(webui_manager: WebuiManager):
                     """
                     ### RPA Challenge
                     
-                    Esta aba permite executar uma automação para o [RPA Challenge](https://rpachallenge.com/), 
-                    um desafio de automação de preenchimento de formulários.
+                    This tab allows you to run an automation for the [RPA Challenge](https://rpachallenge.com/), 
+                    a form filling automation challenge.
                     
-                    O desafio consiste em:
-                    1. Baixar um arquivo Excel com dados
-                    2. Preencher um formulário com os dados do Excel
+                    The challenge consists of:
+                    1. Download an Excel file with data
+                    2. Fill a form with the Excel data
                     
-                    A automação utiliza dois agentes:
-                    - Agente de download do Excel
-                    - Agente de preenchimento do formulário
+                    The automation uses two agents:
+                    - Excel download agent
+                    - Form filling agent
                     """,
                     elem_classes=["tab-header-text"],
                 )
                 status = gr.Textbox(
                     label="Status", 
-                    placeholder="Status da execução do RPA Challenge",
+                    placeholder="RPA Challenge execution status",
                     interactive=False,
                     lines=1
                 )
             with gr.Column(scale=1):
                 headless = gr.Checkbox(
-                    label="Executar em modo headless", 
+                    label="Run in headless mode", 
                     value=True,
-                    info="Se marcado, o navegador será executado em segundo plano"
+                    info="If checked, the browser will run in the background"
                 )
                 with gr.Row():
                     run_button = gr.Button(
-                        "▶️ Executar RPA Challenge", 
+                        "▶️ Run RPA Challenge", 
                         variant="primary", 
                         scale=1
                     )
                     stop_button = gr.Button(
-                        "⏹️ Parar", 
+                        "⏹️ Stop", 
                         variant="stop", 
                         scale=1,
                         interactive=False
                     )
                     clear_button = gr.Button(
-                        "🗑️ Limpar", 
+                        "🗑️ Clear", 
                         variant="secondary", 
                         scale=1
                     )
         
         with gr.Tabs():
-            with gr.TabItem("📊 Resultados"):
+            with gr.TabItem("📊 Results"):
                 with gr.Row():
                     with gr.Column(scale=1):
-                        gr.Markdown("### Agente de Download")
+                        gr.Markdown("### Download Agent")
                         download_gif = gr.Image(
-                            label="Gravação do Download",
+                            label="Download Recording",
                             visible=False,
                             type="filepath",
                             format="gif"
                         )
                     with gr.Column(scale=1):
-                        gr.Markdown("### Agente de Processamento")
+                        gr.Markdown("### Processing Agent")
                         process_gif = gr.Image(
-                            label="Gravação do Processamento",
+                            label="Processing Recording",
                             visible=False,
                             type="filepath",
                             format="gif"
@@ -275,7 +275,7 @@ def create_rpa_challenge_tab(webui_manager: WebuiManager):
             with gr.TabItem("📝 Logs"):
                 log_output = gr.Textbox(
                     label="Logs", 
-                    placeholder="Logs da execução do RPA Challenge",
+                    placeholder="RPA Challenge execution logs",
                     interactive=False,
                     lines=20
                 )

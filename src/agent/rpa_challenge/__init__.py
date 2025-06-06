@@ -1,6 +1,6 @@
 """
-Módulo de agente RPA Challenge para o NavAIgator.
-Fornece funcionalidades para automação do desafio RPA Challenge.
+RPA Challenge agent module for NavAIgator.
+Provides functionality for RPA Challenge automation.
 """
 
 from src.agent.rpa_challenge.rpa_challenge_agent import RPAChallengeRunner
