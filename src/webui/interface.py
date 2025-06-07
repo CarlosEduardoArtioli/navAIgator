@@ -9,6 +9,7 @@ from src.webui.components.deep_research_agent_tab import create_deep_research_ag
 from src.webui.components.load_save_config_tab import create_load_save_config_tab
 from src.webui.components.rpa_challenge_tab import create_rpa_challenge_tab
 from src.webui.components.azure_devops_tab import create_azure_devops_tab
+from src.webui.components.laminar_monitoring_tab import create_laminar_monitoring_tab
 
 # Accenture Colors
 ACCENTURE_PURPLE = "#A100FF"
@@ -131,6 +132,9 @@ def create_ui(theme_name="Accenture"):
 
             with gr.TabItem("🔗 Azure DevOps"):
                 create_azure_devops_tab(ui_manager)
+
+            with gr.TabItem("📊 Laminar"):
+                create_laminar_monitoring_tab(ui_manager)
 
             with gr.TabItem("📁 Settings"):
                 create_load_save_config_tab(ui_manager)

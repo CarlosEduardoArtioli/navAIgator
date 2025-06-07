@@ -11,3 +11,4 @@ langchain-community
 pandas>=1.4.0
 playwright>=1.40.0
 azure-devops>=7.0.0
+lmnr[all]>=0.4.22

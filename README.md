@@ -21,6 +21,8 @@ We would like to officially thank [WarmShao](https://github.com/warmshao) for hi
 
 **Azure DevOps Integration:** Seamlessly integrate with Azure DevOps to automatically create work items with execution results, attachments, and link them to parent user stories for comprehensive test automation tracking.
 
+**Laminar Observability:** Built-in integration with Laminar for comprehensive AI observability, including automatic tracing of LLM calls, browser actions, performance metrics, and task execution analytics.
+
 <video src="https://github.com/user-attachments/assets/56bc7080-f2e3-4367-af22-6bf2245ff6cb" controls="controls">Your browser does not support playing this video!</video>
 
 ## Installation Guide
@@ -198,6 +200,64 @@ The integration automatically tries different work item types based on your Azur
 
 You can also use the Azure DevOps tab for manual operations:
 - **Test Connection** - Verify your Azure DevOps settings
+
+## Laminar Observability Integration
+
+The WebUI includes built-in Laminar integration for comprehensive AI observability and monitoring.
+
+### Features
+
+✅ **Automatic LLM Tracing** - Traces all LLM calls automatically  
+✅ **Browser Action Monitoring** - Tracks all browser interactions and actions  
+✅ **Performance Metrics** - Monitors execution time, success rates, and errors  
+✅ **Task Analytics** - Detailed analytics of agent task execution  
+✅ **Real-time Monitoring** - Live monitoring dashboard in the WebUI  
+✅ **Self-hosting Support** - Works with both cloud and self-hosted Laminar instances
+
+### Setup
+
+1. **Configure Laminar Settings** in the Laminar tab:
+   - **Project API Key**: Your Laminar project API key
+   - **Base URL**: Laminar server URL (default: https://api.lmnr.ai)
+   - **Enable/Disable**: Toggle Laminar integration
+
+2. **Get Project API Key**:
+   - Visit [lmnr.ai](https://www.lmnr.ai/)
+   - Create an account and project
+   - Go to Settings → API Keys
+   - Generate a new API key
+
+3. **Environment Configuration** (optional):
+   ```env
+   LMNR_PROJECT_API_KEY=your_api_key_here
+   LMNR_BASE_URL=https://api.lmnr.ai
+   LMNR_ENABLED=true
+   ```
+
+### Usage
+
+Once configured, Laminar automatically tracks:
+
+1. **Agent Task Execution** - Complete task lifecycle with timing and outcomes
+2. **Browser Actions** - All clicks, typing, navigation with success/failure status  
+3. **LLM Interactions** - Automatic tracing of all language model calls
+4. **Performance Metrics** - Execution time, token usage, error rates
+5. **Custom Events** - Task completion, cancellation, and error events
+
+### Monitored Metrics
+
+- **Task Execution Time** - How long each agent task takes
+- **Success/Failure Rates** - Task completion statistics  
+- **Browser Action Types** - Distribution of browser interactions
+- **Error Analysis** - Detailed error tracking and categorization
+- **Token Usage** - LLM token consumption tracking
+
+### Self-hosting Laminar
+
+For self-hosted Laminar instances:
+1. Set up Laminar using their [documentation](https://docs.lmnr.ai/)
+2. Update the Base URL in the Laminar tab to your instance
+3. Ensure your API key is configured for your self-hosted instance
 - **Retrieve User Story** - Fetch and display user story details by ID
 
 ## Changelog

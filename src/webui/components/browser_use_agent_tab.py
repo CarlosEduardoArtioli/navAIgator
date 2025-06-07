@@ -4,6 +4,7 @@ import logging
 import os
 import uuid
 from typing import Any, AsyncGenerator, Dict, Optional
+import time
 
 import gradio as gr
 
@@ -23,6 +24,7 @@ from src.browser.custom_browser import CustomBrowser
 from src.controller.custom_controller import CustomController
 from src.utils import llm_provider
 from src.webui.webui_manager import WebuiManager
+from src.integrations.laminar_config import observe_task, trace_browser_action, log_metric
 
 logger = logging.getLogger(__name__)
 
@@ -560,10 +562,14 @@ async def _ask_assistant_callback(
 # --- Core Agent Execution Logic --- (Needs access to webui_manager)
 
 
+@observe_task(name="browser_agent_task_execution")
 async def run_agent_task(
         webui_manager: WebuiManager, components: Dict[gr.components.Component, Any]
 ) -> AsyncGenerator[Dict[gr.components.Component, Any], None]:
     """Handles the entire lifecycle of initializing and running the agent."""
+    
+    # Início do rastreamento de tempo para métricas
+    start_time = time.time()
 
     # --- Get Components ---
     # Need handles to specific UI components to update them
@@ -799,9 +805,31 @@ async def run_agent_task(
         async def step_callback_wrapper(
                 state: BrowserState, output: AgentOutput, step_num: int
         ):
+            # Rastrear ação do navegador
+            if output and output.action:
+                for action in output.action:
+                    action_type = getattr(action, 'action_type', 'unknown')
+                    trace_browser_action(
+                        action_type=action_type,
+                        element=getattr(action, 'element', None),
+                        success=True,  # Assumindo sucesso se chegou até aqui
+                        duration=None
+                    )
+            
             await _handle_new_step(webui_manager, state, output, step_num)
 
         def done_callback_wrapper(history: AgentHistoryList):
+            # Calcular métricas finais
+            execution_time = time.time() - start_time
+            total_steps = len(history.history) if history and hasattr(history, 'history') else 0
+            
+            # Log métricas de conclusão
+            log_metric("task_completion", "success", {
+                "execution_time": execution_time,
+                "total_steps": total_steps,
+                "task": task[:100]  # Primeiros 100 chars da tarefa
+            })
+            
             _handle_done(webui_manager, history, components)
 
         if not webui_manager.bu_agent:
@@ -1010,6 +1038,14 @@ async def run_agent_task(
 
         except asyncio.CancelledError:
             logger.info("Agent task was cancelled.")
+            
+            # Log métrica de cancelamento
+            execution_time = time.time() - start_time
+            log_metric("task_completion", "cancelled", {
+                "execution_time": execution_time,
+                "task": task[:100]
+            })
+            
             if not any(
                     "Cancelled" in msg.get("content", "")
                     for msg in webui_manager.bu_chat_history
@@ -1027,6 +1063,16 @@ async def run_agent_task(
                 logger.error(f"Failed to send cancellation to Azure DevOps: {azure_error}")
         except Exception as e:
             logger.error(f"Error during agent execution: {e}", exc_info=True)
+            
+            # Log métrica de erro
+            execution_time = time.time() - start_time
+            log_metric("task_completion", "error", {
+                "execution_time": execution_time,
+                "error_type": type(e).__name__,
+                "error_message": str(e),
+                "task": task[:100]
+            })
+            
             error_message = (
                 f"**Agent Execution Error:**\n```\n{type(e).__name__}: {e}\n```"
             )
